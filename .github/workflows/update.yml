@@ -1,16 +1,16 @@
 name: Update Yonder RSS
 
 on:
-schedule:
-- cron: "*/30 * * * *"
-workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-update:
-runs-on: ubuntu-latest
+  update:
+  runs-on: ubuntu-latest
 
 steps:
   - name: 01 - Checkout repository
