@@ -22,6 +22,9 @@ jobs:
           perl-version: "5.40"
           enable-modules-cache: true
 
+      - name: 03 - Install dependencies
+        run: cpanm --no-test --installdeps .
+        
       - name: 04 - Check SoundCloud secret
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
