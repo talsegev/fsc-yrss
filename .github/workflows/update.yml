@@ -43,7 +43,7 @@ jobs:
       - name: 04 - Check SoundCloud secret
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
-          run: |
+        run: |
             if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
               echo "ERROR 40: SOUNDCLOUD_CLIENT_ID is missing"
               exit 40
@@ -95,5 +95,5 @@ jobs:
             exit 0
           fi
 
-      git commit -m "Update Yonder RSS feed"
-      git push
+          git commit -m "Update Yonder RSS feed"
+          git push
