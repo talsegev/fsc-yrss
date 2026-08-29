@@ -47,7 +47,7 @@ url = data.get("next_href")
 
 
 if not tracks:
-raise RuntimeError("No SoundCloud tracks found")
+raise RuntimeError("SoundCloud returned no tracks")
 
 rss = ET.Element(
 "rss",
@@ -66,14 +66,12 @@ ET.SubElement(channel, "description").text = "Latest tracks from Yonder"
 for track in tracks:
 item = ET.SubElement(channel, "item")
 
-title = track.get("title", "Untitled")
 permalink = track.get("permalink_url", "")
-description = track.get("description", "")
 
-ET.SubElement(item, "title").text = title
+ET.SubElement(item, "title").text = track.get("title", "Untitled")
 ET.SubElement(item, "link").text = permalink
 ET.SubElement(item, "guid").text = permalink
-ET.SubElement(item, "description").text = description
+ET.SubElement(item, "description").text = track.get("description", "")
 
 created_at = track.get("created_at")
 
