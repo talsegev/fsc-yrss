@@ -10,18 +10,17 @@ use IO::File;
 use POSIX qw(strftime);
 
 #------------------------------------------------------------
-Configuration
+# Configuration
 #------------------------------------------------------------
 
 my $CLIENT_ID = $ENV{"SOUNDCLOUD_CLIENT_ID"};
 my $USER_ID = "19053868";
 my $OUTPUT = "yonder.xml";
 
-my $API_URL =
-"https://api-v2.soundcloud.com/users/$USER_ID/tracks";
+my $API_URL = "https://api-v2.soundcloud.com/users/$USER_ID/tracks";
 
 #------------------------------------------------------------
-Validate configuration
+# Validate configuration
 #------------------------------------------------------------
 
 unless (defined $CLIENT_ID && length $CLIENT_ID) {
@@ -30,21 +29,21 @@ exit 41;
 }
 
 #------------------------------------------------------------
-HTTP client
+# HTTP client
 #------------------------------------------------------------
 
 my $ua = LWP::UserAgent->new(
-agent => "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
-timeout => 30,
+   agent => "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36",
+   timeout => 30,
 );
 
 $ua->default_header(
-"Accept" => "application/json",
-"Referer" => "https://soundcloud.com/yondertapes",
+   "Accept" => "application/json",
+   "Referer" => "https://soundcloud.com/yondertapes",
 );
 
 #------------------------------------------------------------
-Fetch all SoundCloud tracks
+# Fetch all SoundCloud tracks
 #------------------------------------------------------------
 
 my @tracks;
@@ -126,7 +125,7 @@ else {
 }
 
 #------------------------------------------------------------
-Validate tracks
+# Validate tracks
 #------------------------------------------------------------
 
 unless (@tracks) {
@@ -137,7 +136,7 @@ exit 45;
 print "TOTAL TRACKS: ", scalar(@tracks), "\n";
 
 #------------------------------------------------------------
-Sort newest first
+# Sort newest first
 #------------------------------------------------------------
 
 @tracks = sort {
@@ -146,7 +145,7 @@ Sort newest first
 } @tracks;
 
 #------------------------------------------------------------
-Open RSS output
+# Open RSS output
 #------------------------------------------------------------
 
 my $output = IO::File->new(">$OUTPUT");
@@ -157,7 +156,7 @@ exit 46;
 }
 
 #------------------------------------------------------------
-Create RSS
+# Create RSS
 #------------------------------------------------------------
 
 my $writer = XML::Writer->new(
@@ -207,7 +206,7 @@ gmtime()
 );
 
 #------------------------------------------------------------
-RSS items
+# RSS items
 #------------------------------------------------------------
 
 for my $track (@tracks) {
@@ -301,7 +300,7 @@ $writer->endTag("item");
 }
 
 #------------------------------------------------------------
-Finish XML
+# Finish XML
 #------------------------------------------------------------
 
 $writer->endTag("channel");
@@ -311,7 +310,7 @@ $writer->end();
 $output->close();
 
 #------------------------------------------------------------
-Final validation
+# Final validation
 #------------------------------------------------------------
 
 unless (-s $OUTPUT) {
