@@ -1,9 +1,9 @@
 name: Update Yonder RSS
 
 on:
+workflow_dispatch:
 schedule:
 - cron: "*/30 * * * *"
-workflow_dispatch:
 
 permissions:
 contents: write
@@ -23,12 +23,6 @@ steps:
 
   - name: Install dependencies
     run: pip install requests
-
-  - name: Check SoundCloud client ID
-    env:
-      SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
-    run: |
-      test -n "$SOUNDCLOUD_CLIENT_ID"
 
   - name: Generate RSS
     env:
