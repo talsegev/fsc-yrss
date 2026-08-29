@@ -1,4 +1,4 @@
-name: Debug Yonder RSS
+name: Update Yonder RSS
 
 on:
   workflow_dispatch:
@@ -11,169 +11,49 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 01 - START
-        run: |
-          echo "========================================"
-          echo "STARTING DEBUG WORKER"
-          echo "========================================"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Branch/ref: $GITHUB_REF"
-          echo "SHA: $GITHUB_SHA"
-          echo "Runner OS: $RUNNER_OS"
-          echo "Python expected: 3.x"
-          echo "========================================"
-
-      - name: 02 - Checkout repository
-        id: checkout
+      - name: 01 - Checkout repository
         uses: actions/checkout@v5
 
-      - name: 03 - Verify checkout
-        id: verify_checkout
-        shell: bash
-        run: |
-          echo "========================================"
-          echo "CHECKOUT VERIFICATION"
-          echo "========================================"
-
-          pwd
-          echo ""
-
-          echo "Repository files:"
-          find . -maxdepth 2 -type f -print | sort
-
-          echo ""
-          echo "Git status:"
-          git status --short --branch
-
-          echo ""
-          echo "Current commit:"
-          git log -1 --oneline
-
-          echo ""
-          echo "Checking generate_feed.py..."
-
-          if [ -f generate_feed.py ]; then
-            echo "OK: generate_feed.py exists"
-          else
-            echo "ERROR 10: generate_feed.py NOT FOUND"
-            exit 10
-          fi
-
-      - name: 04 - Set up Python
-        id: setup_python
+      - name: 02 - Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.x"
 
-      - name: 05 - Verify Python
-        id: verify_python
-        shell: bash
+      - name: 03 - Install dependencies
         run: |
-          echo "========================================"
-          echo "PYTHON VERIFICATION"
-          echo "========================================"
+          python -m pip install --upgrade pip
+          python -m pip install requests
 
-          python --version || {
-            echo "ERROR 20: python command failed"
-            exit 20
-          }
-
-          python -c "import sys; print('Python executable:', sys.executable)" || {
-            echo "ERROR 21: Python test failed"
-            exit 21
-          }
-
-          python -m pip --version || {
-            echo "ERROR 22: pip unavailable"
-            exit 22
-          }
-
-      - name: 06 - Check SoundCloud secret
-        id: check_secret
-        shell: bash
+      - name: 04 - Check SoundCloud secret
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-          echo "========================================"
-          echo "SOUNDCLOUD SECRET CHECK"
-          echo "========================================"
-
           if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
-            echo "ERROR 30: SOUNDCLOUD_CLIENT_ID is EMPTY or NOT CONFIGURED"
-            echo ""
-            echo "Go to:"
-            echo "Repository Settings -> Secrets and variables -> Actions"
-            echo ""
-            echo "The secret must be named exactly:"
-            echo "SOUNDCLOUD_CLIENT_ID"
+            echo "ERROR 30: SOUNDCLOUD_CLIENT_ID is missing"
             exit 30
           fi
 
-          echo "OK: SOUNDCLOUD_CLIENT_ID exists"
-          echo "Secret length: ${#SOUNDCLOUD_CLIENT_ID}"
+          echo "SOUNDCLOUD_CLIENT_ID is configured"
 
-      - name: 07 - Install dependencies
-        id: install_dependencies
-        shell: bash
+      - name: 05 - Verify files
         run: |
-          echo "========================================"
-          echo "INSTALLING DEPENDENCIES"
-          echo "========================================"
+          if [ ! -f generate_feed.py ]; then
+            echo "ERROR 10: generate_feed.py not found"
+            exit 10
+          fi
 
-          python -m pip install --upgrade pip || {
-            echo "ERROR 40: pip upgrade failed"
-            exit 40
-          }
+          echo "generate_feed.py found"
 
-          python -m pip install requests || {
-            echo "ERROR 41: requests installation failed"
-            exit 41
-          }
-
-          python - <<'PY'
-          import requests
-          print("requests version:", requests.__version__)
-          PY
-
-      - name: 08 - Inspect generate_feed.py
-        id: inspect_script
-        shell: bash
-        run: |
-          echo "========================================"
-          echo "GENERATE_FEED.PY"
-          echo "========================================"
-
-          echo "File:"
-          ls -lah generate_feed.py
-
-          echo ""
-          echo "First 250 lines:"
-          nl -ba generate_feed.py | sed -n '1,250p'
-
-      - name: 09 - Test SoundCloud API
-        id: test_api
-        shell: bash
+      - name: 06 - Test SoundCloud API
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-          echo "========================================"
-          echo "SOUNDCLOUD API TEST"
-          echo "========================================"
-
           python - <<'PY'
           import os
           import sys
           import requests
 
           client_id = os.environ.get("SOUNDCLOUD_CLIENT_ID")
-
-          if not client_id:
-              print("ERROR 50: CLIENT ID missing")
-              sys.exit(50)
-
-          print("Client ID length:", len(client_id))
-          print("Client ID prefix:", client_id[:4] + "...")
-          print()
 
           url = "https://api-v2.soundcloud.com/users/19053868/tracks"
 
@@ -192,9 +72,7 @@ jobs:
               "limit": 1,
           }
 
-          print("Request URL:", url)
-          print("Requesting SoundCloud...")
-          print()
+          print("Testing SoundCloud API...")
 
           try:
               response = requests.get(
@@ -204,168 +82,64 @@ jobs:
                   timeout=30,
               )
           except Exception as exc:
-              print("ERROR 51: HTTP request failed")
-              print(type(exc).__name__, str(exc))
+              print("ERROR 51: SoundCloud request failed")
+              print(exc)
               sys.exit(51)
 
           print("HTTP status:", response.status_code)
-          print("Response URL:", response.url)
-          print("Response length:", len(response.text))
-
-          print()
-          print("Response preview:")
-          print(response.text[:1000])
 
           if response.status_code != 200:
-              print()
-              print("ERROR 52: SoundCloud API returned non-200")
+              print("ERROR 52: SoundCloud API returned an error")
+              print(response.text[:1000])
               sys.exit(52)
 
           try:
               data = response.json()
           except Exception as exc:
-              print("ERROR 53: Response was not valid JSON")
-              print(type(exc).__name__, str(exc))
+              print("ERROR 53: Invalid JSON response")
+              print(exc)
               sys.exit(53)
 
-          collection = data.get("collection", [])
-
-          print()
-          print("API TEST SUCCESS")
-          print("Tracks returned:", len(collection))
-
-          if not collection:
-              print("ERROR 54: API returned empty collection")
-              sys.exit(54)
+          print("SoundCloud API OK")
+          print("Tracks returned:", len(data.get("collection", [])))
           PY
 
-      - name: 10 - Generate RSS
-        id: generate_rss
-        shell: bash
+      - name: 07 - Generate RSS
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-          echo "========================================"
-          echo "GENERATING RSS"
-          echo "========================================"
+          python -u -X faulthandler generate_feed.py
 
-          echo "Starting generate_feed.py..."
-          echo ""
-
-          python -u generate_feed.py
-
-          STATUS=$?
-
-          echo ""
-          echo "generate_feed.py exit code: $STATUS"
-
-          if [ "$STATUS" -ne 0 ]; then
-            echo "ERROR 60: generate_feed.py failed"
-            exit 60
-          fi
-
-      - name: 11 - Verify RSS output
-        id: verify_rss
-        shell: bash
+      - name: 08 - Verify RSS
         run: |
-          echo "========================================"
-          echo "RSS OUTPUT VERIFICATION"
-          echo "========================================"
-
-          echo "Directory:"
-          ls -lah
-
-          echo ""
-
           if [ ! -f yonder.xml ]; then
-            echo "ERROR 70: yonder.xml was NOT created"
+            echo "ERROR 70: yonder.xml was not created"
             exit 70
           fi
 
-          echo "OK: yonder.xml exists"
-
-          SIZE=$(wc -c < yonder.xml)
-
-          echo "RSS size: $SIZE bytes"
-
-          if [ "$SIZE" -eq 0 ]; then
+          if [ ! -s yonder.xml ]; then
             echo "ERROR 71: yonder.xml is empty"
             exit 71
           fi
 
-          echo ""
-          echo "RSS first 30 lines:"
-          sed -n '1,30p' yonder.xml
+          echo "RSS generated successfully"
+          echo "Size: $(wc -c < yonder.xml) bytes"
 
-      - name: 12 - Git status
-        id: git_status
-        shell: bash
+      - name: 09 - Git status
         run: |
-          echo "========================================"
-          echo "GIT STATUS"
-          echo "========================================"
+          git status --short
 
-          git status --short --branch
-
-          echo ""
-          echo "Changed files:"
-          git diff --name-only
-
-          echo ""
-          echo "Diff statistics:"
-          git diff --stat
-
-      - name: 13 - Commit RSS
-        id: commit
-        shell: bash
+      - name: 10 - Commit and push
         run: |
-          echo "========================================"
-          echo "COMMIT STAGE"
-          echo "========================================"
-
           git config user.name "Yonder RSS Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add yonder.xml
 
           if git diff --cached --quiet; then
-            echo "No RSS changes detected."
-            echo "Nothing to commit."
+            echo "No changes to commit"
             exit 0
           fi
 
-          echo "Changes staged:"
-          git diff --cached --stat
-
-          git commit -m "Update Yonder RSS feed" || {
-            echo "ERROR 80: git commit failed"
-            exit 80
-          }
-
-      - name: 14 - Push
-        id: push
-        shell: bash
-        run: |
-          echo "========================================"
-          echo "PUSH STAGE"
-          echo "========================================"
-
-          echo "Current branch:"
-          git branch --show-current
-
-          echo ""
-          echo "Remote:"
-          git remote -v
-
-          echo ""
-          echo "Pushing..."
-
-          git push || {
-            echo "ERROR 90: git push failed"
-            exit 90
-          }
-
-          echo ""
-          echo "========================================"
-          echo "WORKER COMPLETED SUCCESSFULLY"
-          echo "========================================"
+          git commit -m "Update Yonder RSS feed"
+          git push
