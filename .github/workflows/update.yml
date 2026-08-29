@@ -26,12 +26,51 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
+      - name: Verify configuration
+        env:
+          SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
+          SOUNDCLOUD_USER_ID: "19053868"
+          SOUNDCLOUD_USERNAME: "yondertapes"
+        run: |
+          echo "Python version:"
+          python --version
+
+          echo
+          echo "Checking SoundCloud configuration..."
+
+          if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
+            echo "ERROR: SOUNDCLOUD_CLIENT_ID is EMPTY or NOT CONFIGURED"
+            exit 1
+          fi
+
+          echo "SOUNDCLOUD_CLIENT_ID is configured"
+          echo "SOUNDCLOUD_USER_ID=$SOUNDCLOUD_USER_ID"
+          echo "SOUNDCLOUD_USERNAME=$SOUNDCLOUD_USERNAME"
+
       - name: Generate RSS
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
           SOUNDCLOUD_USER_ID: "19053868"
           SOUNDCLOUD_USERNAME: "yondertapes"
-        run: python generate_feed.py
+        run: |
+          python generate_feed.py
+
+      - name: Verify generated RSS
+        run: |
+          if [ ! -f yonder.xml ]; then
+            echo "ERROR: yonder.xml was not created"
+            exit 1
+          fi
+
+          echo "yonder.xml was created successfully"
+
+          echo
+          echo "File size:"
+          ls -lh yonder.xml
+
+          echo
+          echo "First 20 lines:"
+          head -20 yonder.xml
 
       - name: Commit updated feed
         run: |
