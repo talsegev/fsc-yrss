@@ -69,7 +69,7 @@ if ($request_url =~ /\?/) {
 }
 
 if ($first_request) {
-    $request_url .= "?client_id=$CLIENT_ID&limit=50";
+    $request_url .= "&limit=50";
     $first_request = 0;
 }
 
