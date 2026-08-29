@@ -1,4 +1,4 @@
-name: Update Yonder RSS
+name: Update Yonder RSS Debug
 
 on:
 workflow_dispatch:
