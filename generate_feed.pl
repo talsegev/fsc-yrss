@@ -12,6 +12,13 @@ use POSIX qw(strftime);
 binmode(STDOUT, ':encoding(UTF-8)');
 binmode(STDERR, ':encoding(UTF-8)');
 
+sub xml_safe {
+    my ($s) = @_;
+    return "" unless defined $s;
+    $s =~ s/[^\x09\x0A\x0D\x20-\x{D7FF}\x{E000}-\x{FFFD}]//g;
+    return $s;
+}
+
 #------------------------------------------------------------
 # Configuration
 #------------------------------------------------------------
@@ -220,17 +227,15 @@ gmtime()
 
 for my $track (@tracks) {
 
-my $title =
-    $track->{title} || "Untitled";
+#my $title = $track->{title} || "Untitled";
+my $title = xml_safe($track->{title} || "Untitled");
 
-my $track_url =
-    $track->{permalink_url} || "";
+my $track_url = $track->{permalink_url} || "";
 
-my $description =
-    $track->{description} || "";
+#my $description = $track->{description} || "";
+my $description = xml_safe($track->{description} || "");
 
-my $created_at =
-    $track->{created_at} || "";
+my $created_at = $track->{created_at} || "";
 
 $writer->startTag("item");
 
