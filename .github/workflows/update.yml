@@ -12,88 +12,88 @@ jobs:
   update:
   runs-on: ubuntu-latest
 
-steps:
-  - name: 01 - Checkout repository
-    uses: actions/checkout@v5
+  steps:
+    - name: 01 - Checkout repository
+      uses: actions/checkout@v5
 
-  - name: 02 - Set up Perl
-    uses: shogo82148/actions-setup-perl@v1
-    with:
-      perl-version: "5.40"
+    - name: 02 - Set up Perl
+      uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: "5.40"
 
-  - name: 03 - Install Perl dependencies
-    run: |
-      echo LWP
-      cpanm --no-test LWP
-      echo LWP::UserAgent
-      cpanm --no-test LWP::UserAgent
-      echo JSON
-      cpanm --no-test JSON
-      echo XML::Writer
-      cpanm --no-test XML::Writer
-      echo XML::Parser
-      cpanm --no-test XML::Parser
-      echo IO::File
-      cpanm --no-test IO::File
-      echo POSIX
-      cpanm --no-test POSIX
-      echo DONE
+    - name: 03 - Install Perl dependencies
+      run: |
+        echo LWP
+        cpanm --no-test LWP
+        echo LWP::UserAgent
+        cpanm --no-test LWP::UserAgent
+        echo JSON
+        cpanm --no-test JSON
+        echo XML::Writer
+        cpanm --no-test XML::Writer
+        echo XML::Parser
+        cpanm --no-test XML::Parser
+        echo IO::File
+        cpanm --no-test IO::File
+        echo POSIX
+        cpanm --no-test POSIX
+        echo DONE
 
 
-  - name: 04 - Check SoundCloud secret
-    env:
-      SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
-    run: |
-      if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
-        echo "ERROR 40: SOUNDCLOUD_CLIENT_ID is missing"
-        exit 40
-      fi
+    - name: 04 - Check SoundCloud secret
+      env:
+        SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
+        run: |
+        if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
+          echo "ERROR 40: SOUNDCLOUD_CLIENT_ID is missing"
+          exit 40
+        fi
+        
+        echo "SOUNDCLOUD_CLIENT_ID is configured"
 
-      echo "SOUNDCLOUD_CLIENT_ID is configured"
+    - name: 05 - Verify files
+      run: |
+        if [ ! -f generate_feed.pl ]; then
+          echo "ERROR 50: generate_feed.pl not found"
+          exit 50
+        fi
 
-  - name: 05 - Verify files
-    run: |
-      if [ ! -f generate_feed.pl ]; then
-        echo "ERROR 50: generate_feed.pl not found"
-        exit 50
-      fi
+        echo "generate_feed.pl found"
 
-      echo "generate_feed.pl found"
+    - name: 06 - Generate RSS
+      env:
+        SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
+      run: |
+        echo "Starting Perl RSS generator..."
+        perl generate_feed.pl
 
-  - name: 06 - Generate RSS
-    env:
-      SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
-    run: |
-      echo "Starting Perl RSS generator..."
-      perl generate_feed.pl
+    - name: 07 - Verify RSS
+      run: |
+        if [ ! -s yonder.xml ]; then
+          echo "ERROR 70: yonder.xml was not created or is empty"
+          exit 70
+        fi
 
-  - name: 07 - Verify RSS
-    run: |
-      if [ ! -s yonder.xml ]; then
-        echo "ERROR 70: yonder.xml was not created or is empty"
-        exit 70
-      fi
+        perl -MXML::Parser -e 'XML::Parser->new->parsefile("yonder.xml")'
 
-      perl -MXML::Parser -e 'XML::Parser->new->parsefile("yonder.xml")'
+        echo "RSS XML verified successfully"
+        ls -lh yonder.xml
 
-      echo "RSS XML verified successfully"
-      ls -lh yonder.xml
+    - name: 08 - Git status
+      run: |
+        git status --short
 
-  - name: 08 - Git status
-    run: |
-      git status --short
+    - name: 09 - Commit and push
+      run: |
+        git config user.name "Yonder RSS Bot"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-  - name: 09 - Commit and push
-    run: |
-      git config user.name "Yonder RSS Bot"
-      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add yonder.xml
 
-      git add yonder.xml
-
-      if git diff --cached --quiet; then
-        echo "No changes to commit"
-        exit 0
-      fi
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+          exit 0
+        fi
 
       git commit -m "Update Yonder RSS feed"
       git push
