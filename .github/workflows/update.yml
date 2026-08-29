@@ -1,90 +1,49 @@
 name: Update Yonder RSS
 
 on:
-  workflow_dispatch:
+schedule:
+- cron: "*/30 * * * *"
+workflow_dispatch:
 
 permissions:
-  contents: write
+contents: write
 
 jobs:
-  update:
-    runs-on: ubuntu-latest
+update:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: 01 - Checkout repository
-        uses: actions/checkout@v5
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: 02 - Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.x"
+  - name: Set up Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.x"
 
-      - name: 03 - Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install requests
+  - name: Install dependencies
+    run: pip install requests
 
-      - name: 04 - Check SoundCloud secret
-        env:
-          SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
-        run: |
-          if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
-            echo "ERROR 30: SOUNDCLOUD_CLIENT_ID is missing"
-            exit 30
-          fi
+  - name: Check SoundCloud client ID
+    env:
+      SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
+    run: |
+      test -n "$SOUNDCLOUD_CLIENT_ID"
 
-          echo "SOUNDCLOUD_CLIENT_ID is configured"
+  - name: Generate RSS
+    env:
+      SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
+    run: python generate_feed.py
 
-      - name: 05 - Verify files
-        run: |
-          if [ ! -f generate_feed.py ]; then
-            echo "ERROR 10: generate_feed.py not found"
-            exit 10
-          fi
+  - name: Verify RSS
+    run: |
+      test -s yonder.xml
+      python -c "import xml.etree.ElementTree as ET; ET.parse('yonder.xml')"
 
-          echo "generate_feed.py found"
-
-      - name: 06 - Test SoundCloud API
-        env:
-          SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
-        run: |
-          python -c "import requests; print('requests OK')"
-
-      - name: 07 - Generate RSS
-        env:
-          SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
-        run: |
-          echo "STEP 07 START"
-          which python
-          python --version
-          echo "Client ID configured: ${{ secrets.SOUNDCLOUD_CLIENT_ID != '' }}"
-          python -c "print('PYTHON WORKS')"
-          echo "STEP 07 END"
-
-      - name: 08 - Verify RSS
-        run: |
-          if [ ! -f yonder.xml ]; then
-            echo "ERROR 70: yonder.xml was not created"
-            exit 70
-          fi
-
-          echo "RSS generated successfully"
-
-      - name: 09 - Git status
-        run: |
-          git status --short
-
-      - name: 10 - Commit and push
-        run: |
-          git config user.name "Yonder RSS Bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add yonder.xml
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-
-          git commit -m "Update Yonder RSS feed"
-          git push
+  - name: Commit updated feed
+    run: |
+      git config user.name "Yonder RSS Bot"
+      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      git add yonder.xml
+      git diff --cached --quiet || git commit -m "Update Yonder RSS feed"
+      git push
