@@ -170,6 +170,7 @@ unless ($output) {
 print STDERR "ERROR 46: Cannot open $OUTPUT for writing: $!\n";
 exit 46;
 }
+$output->binmode(':encoding(UTF-8)');
 
 #------------------------------------------------------------
 # Create RSS
