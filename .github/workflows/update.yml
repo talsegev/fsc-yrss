@@ -23,20 +23,45 @@ jobs:
 
       - name: 03 - Install Perl dependencies
         run: |
+          echo "Start to install Perls dependencies"
+
+      - name: 03A - Install LWP dependency
+        run: |
           echo LWP
           cpanm --no-test LWP
+
+      - name: 03B - Install LWP::UserAgent dependency
+        run: |
           echo LWP::UserAgent
           cpanm --no-test LWP::UserAgent
+
+      - name: 03C - Install JSON dependency
+        run: |
           echo JSON
           cpanm --no-test JSON
+
+      - name: 03D - Install XML::Writer dependency
+        run: |
           echo XML::Writer
           cpanm --no-test XML::Writer
+
+      - name: 03E - Install Perl XML::Parser dependency
+        run: |
           echo XML::Parser
           cpanm --no-test XML::Parser
+
+      - name: 03F - Install dependency dependency
+        run: |
           echo IO::File
           cpanm --no-test IO::File
+
+      - name: 03G - Install Perl POSIX dependency
+        run: |
           echo POSIX
           cpanm --no-test POSIX
+
+      - name: 03Z - Done Perl dependencies installations
+        run: |
           echo DONE
 
 
