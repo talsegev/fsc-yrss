@@ -9,6 +9,9 @@ use XML::Writer;
 use IO::File;
 use POSIX qw(strftime);
 
+binmode(STDOUT, ':encoding(UTF-8)');
+binmode(STDERR, ':encoding(UTF-8)');
+
 #------------------------------------------------------------
 # Configuration
 #------------------------------------------------------------
