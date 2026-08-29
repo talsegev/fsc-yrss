@@ -23,7 +23,7 @@ jobs:
           enable-modules-cache: true
 
       - name: 03 - Install dependencies
-        run: cpanm --no-test --installdeps .
+        run: cpanm --notest --installdeps .
         
       - name: 04 - Check SoundCloud secret
         env:
