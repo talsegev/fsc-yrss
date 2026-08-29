@@ -20,61 +20,18 @@ jobs:
         uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: "5.40"
-
-      - name: 03 - Install Perl dependencies
-        run: |
-          echo "Start to install Perls dependencies"
-
-      - name: 03A - Install LWP dependency
-        run: |
-          echo LWP
-          cpanm --no-test LWP
-
-      - name: 03B - Install LWP::UserAgent dependency
-        run: |
-          echo LWP::UserAgent
-          cpanm --no-test LWP::UserAgent
-
-      - name: 03C - Install JSON dependency
-        run: |
-          echo JSON
-          cpanm --no-test JSON
-
-      - name: 03D - Install XML::Writer dependency
-        run: |
-          echo XML::Writer
-          cpanm --no-test XML::Writer
-
-      - name: 03E - Install Perl XML::Parser dependency
-        run: |
-          echo XML::Parser
-          cpanm --no-test XML::Parser
-
-      - name: 03F - Install dependency dependency
-        run: |
-          echo IO::File
-          cpanm --no-test IO::File
-
-      - name: 03G - Install Perl POSIX dependency
-        run: |
-          echo POSIX
-          cpanm --no-test POSIX
-
-      - name: 03Z - Done Perl dependencies installations
-        run: |
-          echo DONE
-
+          enable-modules-cache: true
 
       - name: 04 - Check SoundCloud secret
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-            if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
-              echo "ERROR 40: SOUNDCLOUD_CLIENT_ID is missing"
-              exit 40
-            fi
-        
-            echo "SOUNDCLOUD_CLIENT_ID is configured"
+          if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
+            echo "ERROR 40: SOUNDCLOUD_CLIENT_ID is missing"
+            exit 40
+          fi
+          
+          echo "SOUNDCLOUD_CLIENT_ID is configured"
 
       - name: 05 - Verify files
         run: |
@@ -82,7 +39,7 @@ jobs:
             echo "ERROR 50: generate_feed.pl not found"
             exit 50
           fi
-
+          
           echo "generate_feed.pl found"
 
       - name: 06 - Generate RSS
@@ -98,9 +55,9 @@ jobs:
             echo "ERROR 70: yonder.xml was not created or is empty"
             exit 70
           fi
-
-          perl -MXML::Parser -e 'XML::Parser->new->parsefile("yonder.xml")'
-
+          
+          perl -MO=Lint -e 'use XML::Parser; XML::Parser->new->parsefile("yonder.xml");'
+          
           echo "RSS XML verified successfully"
           ls -lh yonder.xml
 
@@ -112,13 +69,14 @@ jobs:
         run: |
           git config user.name "Yonder RSS Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
+          
           git add yonder.xml
-
+          
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-
-          git commit -m "Update Yonder RSS feed"
+          
+          git commit -m "Update Yonder RSS Feed"
+          
           git push
