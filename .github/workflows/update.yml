@@ -58,8 +58,8 @@ jobs:
             echo "ERROR 70: yonder.xml was not created or is empty"
             exit 70
           fi
-          
-          perl -MO=Lint -e 'use XML::Parser; XML::Parser->new->parsefile("yonder.xml");'
+
+          perl -MXML::Parser -e 'XML::Parser->new->parsefile("yonder.xml"); print "RSS XML verified successfully\n";'
           
           echo "RSS XML verified successfully"
           ls -lh yonder.xml
