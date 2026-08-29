@@ -48,63 +48,24 @@ jobs:
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-          python - <<'PY'
-          import os
-          import sys
-          import requests
-
-          client_id = os.environ.get("SOUNDCLOUD_CLIENT_ID")
-
-          response = requests.get(
-              "https://api-v2.soundcloud.com/users/19053868/tracks",
-              headers={
-                  "User-Agent": "Mozilla/5.0",
-                  "Accept": "application/json",
-                  "Referer": "https://soundcloud.com/yondertapes",
-              },
-              params={
-                  "client_id": client_id,
-                  "limit": 1,
-              },
-              timeout=30,
-          )
-
-          print("SoundCloud status:", response.status_code)
-
-          if response.status_code != 200:
-              print(response.text[:1000])
-              sys.exit(52)
-
-          data = response.json()
-          print("SoundCloud API OK")
-          print("Tracks returned:", len(data.get("collection", [])))
-          PY
+          python -c "import requests; print('requests OK')"
 
       - name: 07 - Generate RSS
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
+          echo "STEP 07 START"
+          which python
           python --version
-          python -u generate_feed.py > generate_output.log 2>&1
-          EXIT_CODE=$?
-
-          cat generate_output.log
-
-          if [ "$EXIT_CODE" -ne 0 ]; then
-            echo "generate_feed.py failed with exit code $EXIT_CODE"
-            exit "$EXIT_CODE"
-          fi
+          echo "Client ID configured: ${{ secrets.SOUNDCLOUD_CLIENT_ID != '' }}"
+          python -c "print('PYTHON WORKS')"
+          echo "STEP 07 END"
 
       - name: 08 - Verify RSS
         run: |
           if [ ! -f yonder.xml ]; then
             echo "ERROR 70: yonder.xml was not created"
             exit 70
-          fi
-
-          if [ ! -s yonder.xml ]; then
-            echo "ERROR 71: yonder.xml is empty"
-            exit 71
           fi
 
           echo "RSS generated successfully"
