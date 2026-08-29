@@ -1,4 +1,8 @@
 requires 'LWP::UserAgent';
+requires "LWP::Protocol::https";
+requires "IO::Socket::SSL";
+requires "Net::SSLeay";
+requires "Mozilla::CA";
 requires 'JSON';
 requires 'XML::Writer';
 requires 'XML::Parser';
