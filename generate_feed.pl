@@ -62,6 +62,12 @@ print "URL: $url\n";
 
 my $request_url = $url;
 
+if ($request_url =~ /\?/) {
+    $request_url .= "&client_id=$CLIENT_ID";
+} else {
+    $request_url .= "?client_id=$CLIENT_ID";
+}
+
 if ($first_request) {
     $request_url .= "?client_id=$CLIENT_ID&limit=50";
     $first_request = 0;
