@@ -36,6 +36,19 @@ HEADERS = {
 
 
 # ============================================================
+# XML namespaces
+# ============================================================
+
+ITUNES_NS = "http://www.itunes.com/dtds/podcast-1.0.dtd"
+CONTENT_NS = "http://purl.org/rss/1.0/modules/content/"
+SOUNDCLOUD_NS = "https://soundcloud.com/"
+
+ET.register_namespace("itunes", ITUNES_NS)
+ET.register_namespace("content", CONTENT_NS)
+ET.register_namespace("soundcloud", SOUNDCLOUD_NS)
+
+
+# ============================================================
 # Validation
 # ============================================================
 
@@ -52,20 +65,10 @@ def fetch_tracks():
     """
     Fetch every track from the SoundCloud user's track collection.
 
-    SoundCloud uses cursor-style pagination here.
+    SoundCloud uses cursor-style pagination.
 
-    The first request is:
-
-        /users/{user_id}/tracks?client_id=...&limit=50
-
-    The API then returns a `next_href`, for example:
-
-        https://api-v2.soundcloud.com/users/19053868/tracks
-        ?offset=2023-01-08T13%3A13%3A09.000Z,tracks,...
-        &limit=50
-
-    We follow `next_href` until it disappears or an empty collection
-    is returned.
+    We follow the API's `next_href` exactly until there are
+    no more pages.
     """
 
     session = requests.Session()
@@ -86,7 +89,9 @@ def fetch_tracks():
     while url:
         page += 1
 
-        print(f"\nFETCH PAGE {page}")
+        print()
+        print("=" * 60)
+        print(f"FETCH PAGE {page}")
         print(url)
 
         try:
@@ -101,17 +106,17 @@ def fetch_tracks():
 
         print("STATUS:", response.status_code)
 
-        try:
-            response.raise_for_status()
-        except requests.HTTPError:
-            print(response.text[:1000])
-            raise
+        if response.status_code != 200:
+            print("SoundCloud response:")
+            print(response.text[:2000])
+
+        response.raise_for_status()
 
         try:
             data = response.json()
         except ValueError:
             print("ERROR: SoundCloud returned invalid JSON.")
-            print(response.text[:1000])
+            print(response.text[:2000])
             sys.exit(1)
 
         collection = data.get("collection", [])
@@ -134,32 +139,37 @@ def fetch_tracks():
             tracks.append(track)
 
         # IMPORTANT:
-        # The second and subsequent requests must use the complete
-        # next_href supplied by SoundCloud.
+        #
+        # SoundCloud provides cursor pagination through next_href.
+        #
+        # Do NOT construct the offset ourselves.
         next_href = data.get("next_href")
 
         if not next_href:
+            print("No next_href. Pagination finished.")
             break
+
+        print("NEXT:", next_href)
 
         url = next_href
 
-        # next_href already contains its own query parameters.
-        # Do not append client_id/limit again.
+        # next_href already contains all required query parameters.
         params = None
 
-    print("\nTOTAL:", len(tracks))
+    print()
+    print("=" * 60)
+    print("TOTAL TRACKS:", len(tracks))
+    print("=" * 60)
 
     return tracks
 
 
 # ============================================================
-# Helpers
+# Track helpers
 # ============================================================
 
 def track_url(track):
-    """
-    Return the public SoundCloud URL.
-    """
+    """Return the public SoundCloud URL."""
 
     permalink_url = track.get("permalink_url")
 
@@ -175,9 +185,7 @@ def track_url(track):
 
 
 def track_title(track):
-    """
-    Return a safe RSS title.
-    """
+    """Return a safe track title."""
 
     title = track.get("title")
 
@@ -188,24 +196,20 @@ def track_title(track):
 
 
 def track_description(track):
-    """
-    Build a useful RSS description.
-    """
+    """Return the track description."""
 
     description = track.get("description")
 
     if description:
         return str(description)
 
-    title = track_title(track)
-
-    return f"{title} by Yonder"
+    return f"{track_title(track)} by Yonder"
 
 
 def track_pub_date(track):
     """
-    Convert SoundCloud's created_at timestamp to RFC 2822,
-    which is what RSS expects for pubDate.
+    Convert SoundCloud's created_at timestamp into RFC 2822,
+    which is suitable for RSS pubDate.
     """
 
     created_at = track.get("created_at")
@@ -214,8 +218,6 @@ def track_pub_date(track):
         return format_datetime(datetime.now(timezone.utc))
 
     try:
-        # SoundCloud normally returns:
-        # 2026-08-29T12:34:56.000Z
         dt = datetime.fromisoformat(
             created_at.replace("Z", "+00:00")
         )
@@ -224,14 +226,13 @@ def track_pub_date(track):
             dt = dt.replace(tzinfo=timezone.utc)
 
         return format_datetime(dt)
+
     except Exception:
         return format_datetime(datetime.now(timezone.utc))
 
 
 def track_image(track):
-    """
-    Get the SoundCloud artwork URL if available.
-    """
+    """Return SoundCloud artwork or avatar."""
 
     artwork = track.get("artwork_url")
 
@@ -253,16 +254,12 @@ def track_image(track):
 # ============================================================
 
 def create_rss(tracks):
-    """
-    Create the RSS XML document.
-    """
+    """Create the RSS XML tree."""
 
     rss = ET.Element(
         "rss",
         {
             "version": "2.0",
-            "xmlns:itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
-            "xmlns:content": "http://purl.org/rss/1.0/modules/content/",
         },
     )
 
@@ -300,20 +297,20 @@ def create_rss(tracks):
 
     ET.SubElement(
         channel,
-        "itunes:author",
+        f"{{{ITUNES_NS}}}author",
     ).text = "Yonder"
 
     ET.SubElement(
         channel,
-        "itunes:explicit",
+        f"{{{ITUNES_NS}}}explicit",
     ).text = "false"
 
-    # Keep newest tracks first.
+    # Newest first.
     tracks = sorted(
         tracks,
-        key=lambda t: (
-            t.get("created_at") or "",
-            t.get("id") or 0,
+        key=lambda track: (
+            track.get("created_at") or "",
+            track.get("id") or 0,
         ),
         reverse=True,
     )
@@ -357,19 +354,19 @@ def create_rss(tracks):
         if image:
             ET.SubElement(
                 item,
-                "itunes:image",
+                f"{{{ITUNES_NS}}}image",
                 {
                     "href": image,
                 },
             )
 
-        # Store the SoundCloud track ID as a custom metadata element.
+        # SoundCloud track ID.
         track_id = track.get("id")
 
         if track_id is not None:
             ET.SubElement(
                 item,
-                "soundcloud:id",
+                f"{{{SOUNDCLOUD_NS}}}id",
             ).text = str(track_id)
 
     return rss
@@ -380,16 +377,13 @@ def create_rss(tracks):
 # ============================================================
 
 def write_xml(root):
-    """
-    Write formatted XML to disk.
-    """
+    """Write the RSS XML file."""
 
     tree = ET.ElementTree(root)
 
     try:
         ET.indent(tree, space="  ")
     except AttributeError:
-        # Python < 3.9 compatibility.
         pass
 
     tree.write(
@@ -404,12 +398,14 @@ def write_xml(root):
 # ============================================================
 
 def main():
-    print("========================================")
-    print("Yonder RSS Generator")
-    print("========================================")
-    print("User:", USERNAME)
+    print()
+    print("=" * 60)
+    print("YONDER RSS GENERATOR")
+    print("=" * 60)
+    print("Username:", USERNAME)
     print("User ID:", USER_ID)
     print("Output:", OUTPUT_FILE)
+    print("=" * 60)
 
     tracks = fetch_tracks()
 
@@ -419,29 +415,14 @@ def main():
 
     root = create_rss(tracks)
 
-    # ElementTree doesn't automatically declare custom namespaces
-    # used in tags. Register them before writing.
-    ET.register_namespace(
-        "itunes",
-        "http://www.itunes.com/dtds/podcast-1.0.dtd",
-    )
-
-    ET.register_namespace(
-        "content",
-        "http://purl.org/rss/1.0/modules/content/",
-    )
-
-    ET.register_namespace(
-        "soundcloud",
-        "https://soundcloud.com/",
-    )
-
     write_xml(root)
 
     print()
-    print("RSS generated successfully.")
+    print("=" * 60)
+    print("RSS GENERATED SUCCESSFULLY")
     print("Tracks:", len(tracks))
     print("File:", OUTPUT_FILE)
+    print("=" * 60)
 
 
 if __name__ == "__main__":
