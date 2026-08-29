@@ -2,6 +2,8 @@ name: Update Yonder RSS DEBUG
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
 
 permissions:
   contents: write
@@ -11,184 +13,356 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------------------------------------------------
+      # 1. CHECKOUT
+      # ------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # ------------------------------------------------------------
+      # 2. PYTHON
+      # ------------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.x"
 
+      # ------------------------------------------------------------
+      # 3. INSTALL DEPENDENCIES
+      # ------------------------------------------------------------
       - name: Install dependencies
         shell: bash
         run: |
-          echo "=== INSTALL DEPENDENCIES ==="
+          echo "========================================"
+          echo "STEP 3: INSTALL DEPENDENCIES"
+          echo "========================================"
 
           python --version
-          PYTHON_STATUS=$?
-
-          if [ "$PYTHON_STATUS" -ne 0 ]; then
-            echo "CUSTOM ERROR: PYTHON_COMMAND_FAILED"
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 30"
+            echo "Python is not available"
             exit 30
           fi
 
-          python -m pip install requests
-          PIP_STATUS=$?
-
-          if [ "$PIP_STATUS" -ne 0 ]; then
-            echo "CUSTOM ERROR: PIP_INSTALL_FAILED"
+          python -m pip --version
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 31"
+            echo "pip is not available"
             exit 31
           fi
 
-          echo "INSTALL OK"
+          python -m pip install requests
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 32"
+            echo "Failed to install requests"
+            exit 32
+          fi
 
+          echo "Dependencies installed successfully."
+
+      # ------------------------------------------------------------
+      # 4. CHECK SOUNDCLOUD SECRET
+      # ------------------------------------------------------------
       - name: Check SoundCloud secret
         shell: bash
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-          echo "=== CHECK SOUNDCLOUD CLIENT ID ==="
+          echo "========================================"
+          echo "STEP 4: CHECK SOUNDCLOUD SECRET"
+          echo "========================================"
 
           if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
-            echo "CUSTOM ERROR: SOUNDCLOUD_CLIENT_ID_MISSING"
+            echo "CUSTOM ERROR CODE: 10"
+            echo "SOUNDCLOUD_CLIENT_ID is missing or empty."
             exit 10
           fi
 
-          echo "SoundCloud client ID is present"
-          echo "Length: ${#SOUNDCLOUD_CLIENT_ID}"
+          echo "SOUNDCLOUD_CLIENT_ID is configured."
+          echo "Client ID length: ${#SOUNDCLOUD_CLIENT_ID}"
 
+      # ------------------------------------------------------------
+      # 5. CHECK FILES
+      # ------------------------------------------------------------
       - name: Check repository files
         shell: bash
         run: |
-          echo "=== CHECK FILES ==="
+          echo "========================================"
+          echo "STEP 5: CHECK REPOSITORY FILES"
+          echo "========================================"
 
-          echo "PWD:"
+          echo "Current directory:"
           pwd
 
           echo ""
-          echo "FILES:"
+          echo "Repository contents:"
           ls -la
 
           echo ""
           echo "Checking generate_feed.py..."
 
           if [ ! -f generate_feed.py ]; then
-            echo "CUSTOM ERROR: GENERATE_FEED_PY_MISSING"
+            echo "CUSTOM ERROR CODE: 20"
+            echo "generate_feed.py was not found."
             exit 20
           fi
 
-          echo "generate_feed.py exists"
+          echo "generate_feed.py found:"
+          ls -lh generate_feed.py
 
+      # ------------------------------------------------------------
+      # 6. SHOW PYTHON SCRIPT INFO
+      # ------------------------------------------------------------
+      - name: Inspect Python script
+        shell: bash
+        run: |
+          echo "========================================"
+          echo "STEP 6: INSPECT PYTHON SCRIPT"
+          echo "========================================"
+
+          echo "Python executable:"
+          which python
+
+          echo ""
+          echo "Python version:"
+          python --version
+
+          echo ""
+          echo "Python script size:"
+          wc -l generate_feed.py
+
+          echo ""
+          echo "First 20 lines of generate_feed.py:"
+          sed -n '1,20p' generate_feed.py
+
+      # ------------------------------------------------------------
+      # 7. RUN PYTHON GENERATOR
+      # ------------------------------------------------------------
       - name: Run Python generator
         shell: bash
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-          echo "=== RUN GENERATE_FEED.PY ==="
+          echo "========================================"
+          echo "STEP 7: RUN GENERATE_FEED.PY"
+          echo "========================================"
+
+          echo "Working directory:"
+          pwd
+
+          echo ""
+          echo "Python executable:"
+          which python
+
+          echo ""
+          echo "Python version:"
+          python --version
+
+          echo ""
+          echo "Environment check:"
+          if [ -z "$SOUNDCLOUD_CLIENT_ID" ]; then
+            echo "SOUNDCLOUD_CLIENT_ID is NOT available"
+            echo "CUSTOM ERROR CODE: 11"
+            exit 11
+          else
+            echo "SOUNDCLOUD_CLIENT_ID is available"
+            echo "Length: ${#SOUNDCLOUD_CLIENT_ID}"
+          fi
+
+          echo ""
+          echo "Starting generate_feed.py..."
+          echo "----------------------------------------"
 
           set +e
 
-          python -u generate_feed.py
+          python -u generate_feed.py > python_output.log 2>&1
 
           PYTHON_EXIT=$?
 
           set -e
 
+          echo "----------------------------------------"
+          echo "Python process finished."
+          echo "Python exit code: $PYTHON_EXIT"
+
           echo ""
-          echo "Python returned: $PYTHON_EXIT"
+          echo "========================================"
+          echo "PYTHON OUTPUT"
+          echo "========================================"
+
+          if [ -f python_output.log ]; then
+            cat python_output.log
+          else
+            echo "WARNING: python_output.log does not exist"
+          fi
+
+          echo ""
+          echo "========================================"
+          echo "END PYTHON OUTPUT"
+          echo "========================================"
 
           if [ "$PYTHON_EXIT" -ne 0 ]; then
-            echo "CUSTOM ERROR: GENERATE_FEED_FAILED"
+            echo ""
             echo "CUSTOM ERROR CODE: 40"
+            echo "generate_feed.py failed."
+            echo "Original Python exit code: $PYTHON_EXIT"
             exit 40
           fi
 
-          echo "GENERATOR OK"
+          echo ""
+          echo "generate_feed.py completed successfully."
 
-      - name: Check XML
+      # ------------------------------------------------------------
+      # 8. CHECK GENERATED XML
+      # ------------------------------------------------------------
+      - name: Check generated XML
         shell: bash
         run: |
-          echo "=== CHECK XML ==="
+          echo "========================================"
+          echo "STEP 8: CHECK GENERATED XML"
+          echo "========================================"
+
+          echo "Checking for yonder.xml..."
 
           if [ ! -f yonder.xml ]; then
-            echo "CUSTOM ERROR: YONDER_XML_MISSING"
             echo "CUSTOM ERROR CODE: 50"
+            echo "yonder.xml was not created."
             exit 50
           fi
 
+          echo "yonder.xml exists."
+
+          echo ""
+          echo "File information:"
+          ls -lh yonder.xml
+
           if [ ! -s yonder.xml ]; then
-            echo "CUSTOM ERROR: YONDER_XML_EMPTY"
             echo "CUSTOM ERROR CODE: 51"
+            echo "yonder.xml exists but is empty."
             exit 51
           fi
 
-          echo "XML exists:"
-          ls -lh yonder.xml
+          echo ""
+          echo "XML file is not empty."
 
-      - name: Test Git
+          echo ""
+          echo "First 10 lines:"
+          head -n 10 yonder.xml
+
+      # ------------------------------------------------------------
+      # 9. GIT STATUS
+      # ------------------------------------------------------------
+      - name: Check Git status
         shell: bash
         run: |
-          echo "=== TEST GIT ==="
+          echo "========================================"
+          echo "STEP 9: CHECK GIT"
+          echo "========================================"
 
           git status
+          STATUS=$?
 
-          GIT_STATUS=$?
-
-          if [ "$GIT_STATUS" -ne 0 ]; then
-            echo "CUSTOM ERROR: GIT_STATUS_FAILED"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 60"
+            echo "git status failed."
             exit 60
           fi
 
-          echo "Git OK"
+          echo ""
+          echo "Git status successful."
 
-      - name: Commit and push
+      # ------------------------------------------------------------
+      # 10. CONFIGURE GIT
+      # ------------------------------------------------------------
+      - name: Configure Git
         shell: bash
         run: |
-          echo "=== COMMIT AND PUSH ==="
+          echo "========================================"
+          echo "STEP 10: CONFIGURE GIT"
+          echo "========================================"
 
           git config user.name "Yonder RSS Bot"
-          CONFIG_NAME=$?
-
-          if [ "$CONFIG_NAME" -ne 0 ]; then
-            echo "CUSTOM ERROR: GIT_CONFIG_NAME_FAILED"
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 61"
+            echo "Failed to configure Git username."
             exit 61
           fi
 
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          CONFIG_EMAIL=$?
-
-          if [ "$CONFIG_EMAIL" -ne 0 ]; then
-            echo "CUSTOM ERROR: GIT_CONFIG_EMAIL_FAILED"
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 62"
+            echo "Failed to configure Git email."
             exit 62
           fi
 
-          git add yonder.xml
-          ADD_STATUS=$?
+          echo "Git configured successfully."
 
-          if [ "$ADD_STATUS" -ne 0 ]; then
-            echo "CUSTOM ERROR: GIT_ADD_FAILED"
+      # ------------------------------------------------------------
+      # 11. ADD XML
+      # ------------------------------------------------------------
+      - name: Add RSS file
+        shell: bash
+        run: |
+          echo "========================================"
+          echo "STEP 11: ADD RSS FILE"
+          echo "========================================"
+
+          git add yonder.xml
+
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 70"
+            echo "git add failed."
             exit 70
           fi
 
+          echo "yonder.xml added."
+
+      # ------------------------------------------------------------
+      # 12. COMMIT
+      # ------------------------------------------------------------
+      - name: Commit changes
+        shell: bash
+        run: |
+          echo "========================================"
+          echo "STEP 12: COMMIT CHANGES"
+          echo "========================================"
+
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No changes detected."
+            echo "Nothing to commit."
             exit 0
           fi
 
           git commit -m "Update Yonder RSS feed"
-          COMMIT_STATUS=$?
 
-          if [ "$COMMIT_STATUS" -ne 0 ]; then
-            echo "CUSTOM ERROR: GIT_COMMIT_FAILED"
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 71"
+            echo "git commit failed."
             exit 71
           fi
 
-          git push
-          PUSH_STATUS=$?
+          echo "Commit created successfully."
 
-          if [ "$PUSH_STATUS" -ne 0 ]; then
-            echo "CUSTOM ERROR: GIT_PUSH_FAILED"
+      # ------------------------------------------------------------
+      # 13. PUSH
+      # ------------------------------------------------------------
+      - name: Push changes
+        shell: bash
+        run: |
+          echo "========================================"
+          echo "STEP 13: PUSH CHANGES"
+          echo "========================================"
+
+          git push
+
+          if [ $? -ne 0 ]; then
+            echo "CUSTOM ERROR CODE: 80"
+            echo "git push failed."
             exit 80
           fi
 
-          echo "=== SUCCESS ==="
+          echo ""
+          echo "========================================"
+          echo "SUCCESS"
+          echo "========================================"
+          echo "Yonder RSS feed updated successfully."
