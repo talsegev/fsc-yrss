@@ -55,51 +55,27 @@ jobs:
 
           client_id = os.environ.get("SOUNDCLOUD_CLIENT_ID")
 
-          url = "https://api-v2.soundcloud.com/users/19053868/tracks"
+          response = requests.get(
+              "https://api-v2.soundcloud.com/users/19053868/tracks",
+              headers={
+                  "User-Agent": "Mozilla/5.0",
+                  "Accept": "application/json",
+                  "Referer": "https://soundcloud.com/yondertapes",
+              },
+              params={
+                  "client_id": client_id,
+                  "limit": 1,
+              },
+              timeout=30,
+          )
 
-          headers = {
-              "User-Agent": (
-                  "Mozilla/5.0 (X11; Linux x86_64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/140 Safari/537.36"
-              ),
-              "Accept": "application/json",
-              "Referer": "https://soundcloud.com/yondertapes",
-          }
-
-          params = {
-              "client_id": client_id,
-              "limit": 1,
-          }
-
-          print("Testing SoundCloud API...")
-
-          try:
-              response = requests.get(
-                  url,
-                  headers=headers,
-                  params=params,
-                  timeout=30,
-              )
-          except Exception as exc:
-              print("ERROR 51: SoundCloud request failed")
-              print(exc)
-              sys.exit(51)
-
-          print("HTTP status:", response.status_code)
+          print("SoundCloud status:", response.status_code)
 
           if response.status_code != 200:
-              print("ERROR 52: SoundCloud API returned an error")
               print(response.text[:1000])
               sys.exit(52)
 
-          try:
-              data = response.json()
-          except Exception as exc:
-              print("ERROR 53: Invalid JSON response")
-              print(exc)
-              sys.exit(53)
-
+          data = response.json()
           print("SoundCloud API OK")
           print("Tracks returned:", len(data.get("collection", [])))
           PY
@@ -108,7 +84,16 @@ jobs:
         env:
           SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
         run: |
-          python -u -X faulthandler generate_feed.py
+          python --version
+          python -u generate_feed.py > generate_output.log 2>&1
+          EXIT_CODE=$?
+
+          cat generate_output.log
+
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo "generate_feed.py failed with exit code $EXIT_CODE"
+            exit "$EXIT_CODE"
+          fi
 
       - name: 08 - Verify RSS
         run: |
@@ -123,7 +108,6 @@ jobs:
           fi
 
           echo "RSS generated successfully"
-          echo "Size: $(wc -c < yonder.xml) bytes"
 
       - name: 09 - Git status
         run: |
